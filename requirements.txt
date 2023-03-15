@@ -1,0 +1,11 @@
+APScheduler~=3.10.1
+fastapi~=0.94.1
+jose~=1.0.0
+loguru~=0.6.0
+peewee~=3.16.0
+starlette~=0.26.1
+uvicorn~=0.21.0
+pymysql
+passlib[bcrypt]
+pydantic[dotenv]
+python-jose[cryptography]
