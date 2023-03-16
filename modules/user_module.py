@@ -1,18 +1,12 @@
-import uvicorn
-from fastapi import FastAPI, Depends, Request, HTTPException, status, Response, Cookie
-from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
+from fastapi import  Request, HTTPException, status, Cookie
 from fastapi.security import OAuth2PasswordBearer
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-import mysql.connector
 from typing import Optional, Dict
 import os
 import datetime
-from fastapi import Form
-from starlette.responses import HTMLResponse
+
 
 from db.mysql import get_db_connection
 
