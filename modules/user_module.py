@@ -104,5 +104,27 @@ async def get_current_user(request: Request, access_token: Optional[str] = Cooki
     return user
 
 
-def save_token_to_redis(user_id: int, token: str, expire: int = 1800):
-    redis_client.set(f"user_token:{user_id}", token, ex=expire)
+def save_token_to_redis(username: str, token: str, expire: int = 1800):
+    redis_client.set(f"user_token:{username}:jwt", token, ex=expire)
+
+
+def delete_token_from_redis(username: str):
+    redis_client.delete(f"user_token:{username}:jwt")
+
+
+def is_authenticated(request: Request):
+    access_token = request.cookies.get("access_token")
+    if not access_token:
+        return False, None
+    try:
+        payload = jwt.decode(access_token.split(" ")[1], SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload["sub"]
+    except:
+        return False, None
+
+    # 从 Redis 中获取存储的 JWT
+    stored_jwt = redis_client.get(f"user_token:{username}:jwt")
+    if not stored_jwt or stored_jwt.decode() != access_token.split(" ")[1]:
+        return False, None
+
+    return True, username

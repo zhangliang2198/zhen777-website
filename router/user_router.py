@@ -9,7 +9,7 @@ from crfsutil import generate_csrf_token, validate_csrf_token
 from db.mysql import db_pool
 from logger import logger
 from modules.user_module import authenticate_user, create_access_token, get_current_user, User, save_token, \
-    save_token_to_redis
+    save_token_to_redis, is_authenticated, delete_token_from_redis
 
 # 密码加密
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -19,15 +19,20 @@ router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse)
 async def home(request: Request, response: Response):
-    csrf_token = generate_csrf_token()
-    response = templates.TemplateResponse("login.html", {"request": request, "csrf_token": csrf_token, "error": None})
-    response.set_cookie("csrf_token", csrf_token, httponly=True)
-    logger.info("登录页面访问")
-    return response
+    authenticated, decoded_token = is_authenticated(request)
+    if authenticated:
+        return RedirectResponse(url=f"/dashboard?username={decoded_token}", status_code=303)
+    else:
+        return RedirectResponse(url="/login", status_code=303)
 
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_get(request: Request):
+    authenticated, decoded_token = is_authenticated(request)
+    if authenticated:
+        return RedirectResponse(url=f"/dashboard?username={decoded_token}", status_code=303)
+
+
     csrf_token = generate_csrf_token()
     response = templates.TemplateResponse("login.html", {"request": request, "csrf_token": csrf_token, "error": None})
     response.set_cookie("csrf_token", csrf_token, httponly=True)
@@ -44,7 +49,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     if user:
         access_token = create_access_token(data={"sub": username})
         # save_token(user['id'], access_token)  # 保存 JWT 到数据库
-        save_token_to_redis(user['id'], access_token)  # 保存 JWT 到 Redis
+        save_token_to_redis(user["username"], access_token)  # 保存 JWT 到 Redis
         response = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
         response.set_cookie(
@@ -86,8 +91,10 @@ async def register_page(request: Request):
 
 
 @router.get("/logout")
-async def logout(response: Response):
+async def logout(response: Response, request: Request):
+    authenticated, decoded_token = is_authenticated(request)
     response.delete_cookie("access_token")
+    delete_token_from_redis(decoded_token)
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
 
