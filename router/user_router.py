@@ -4,6 +4,8 @@ from fastapi.templating import Jinja2Templates
 from passlib.context import CryptContext
 from fastapi import Form
 from starlette.responses import HTMLResponse
+
+from crfsutil import generate_csrf_token, validate_csrf_token
 from db.mysql import db_pool
 from logger import logger
 from modules.user_module import authenticate_user, create_access_token, get_current_user, User, save_token, \
@@ -16,19 +18,35 @@ router = APIRouter()
 
 
 @router.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    logger.info("首页面访问")
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+async def home(request: Request, response: Response):
+    csrf_token = generate_csrf_token()
+    response = templates.TemplateResponse("login.html", {"request": request, "csrf_token": csrf_token, "error": None})
+    response.set_cookie("csrf_token", csrf_token, httponly=True)
+    logger.info("登录页面访问")
+    return response
+
+
+@router.get("/login", response_class=HTMLResponse)
+async def login_get(request: Request):
+    csrf_token = generate_csrf_token()
+    response = templates.TemplateResponse("login.html", {"request": request, "csrf_token": csrf_token, "error": None})
+    response.set_cookie("csrf_token", csrf_token, httponly=True)
+    logger.info("登录页面访问")
+    return response
 
 
 @router.post("/login", response_class=HTMLResponse)
-async def login(request: Request, username: str = Form(...), password: str = Form(...)):
+async def login(request: Request, username: str = Form(...), password: str = Form(...), csrf_token: str = Form(...)):
+    client_csrf_token = request.cookies.get("csrf_token")
+    if not client_csrf_token or not validate_csrf_token(csrf_token, client_csrf_token):
+        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid CSRF token."})
     user = authenticate_user(username, password)
     if user:
         access_token = create_access_token(data={"sub": username})
         # save_token(user['id'], access_token)  # 保存 JWT 到数据库
         save_token_to_redis(user['id'], access_token)  # 保存 JWT 到 Redis
         response = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+
         response.set_cookie(
             key="access_token",
             value=f"Bearer {access_token}",
