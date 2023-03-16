@@ -1,6 +1,5 @@
 from fastapi import Request, HTTPException, status, Cookie, Depends
 from fastapi.security import OAuth2PasswordBearer
-from pydantic import BaseModel
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from typing import Optional, Dict
@@ -10,7 +9,7 @@ from sqlalchemy.orm import Session
 from db.mysql import get_db
 from db.redis import redis_client
 from sqlalchemy.sql import text
-from sqlalchemy import Column, Integer, String
+
 from sqlalchemy import Column, Integer, String
 from db.mysql import Base
 
@@ -31,22 +30,6 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     password = Column(String)
-
-
-# class User(BaseModel):
-#     id: Optional[int]
-#     username: str
-#     cellphone: Optional[str]
-#     email: Optional[str]
-#     email_verified_at: Optional[str]
-#     state: Optional[str]
-#     nickname: Optional[str]
-#     description: Optional[str]
-#     gender: Optional[str]
-#     avatar: Optional[str]
-#     created_at: datetime.datetime
-#     updated_at: datetime.datetime
-#     password: Optional[str]
 
 
 def get_user(username: str, db: Session):
