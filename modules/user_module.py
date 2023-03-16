@@ -8,6 +8,7 @@ import os
 import datetime
 
 from db.mysql import db_pool
+from db.redis import redis_client
 
 # 配置
 SECRET_KEY = os.environ.get("SECRET_KEY", "mysecretkey")
@@ -101,3 +102,7 @@ async def get_current_user(request: Request, access_token: Optional[str] = Cooki
     if user is None:
         raise credentials_exception
     return user
+
+
+def save_token_to_redis(user_id: int, token: str, expire: int = 1800):
+    redis_client.set(f"user_token:{user_id}", token, ex=expire)
