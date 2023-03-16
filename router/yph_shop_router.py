@@ -12,7 +12,7 @@ templates = Jinja2Templates(directory="templates")
 
 
 @router_yph.get("/users", response_class=HTMLResponse)
-async def home(request: Request, response: Response, db: Session = Depends(get_db_yph)):
+async def get_user(request: Request, response: Response, db: Session = Depends(get_db_yph)):
     query = text(f"select * from system_users limit :start,:size")
     datas = db.execute(query, {"start": 0, "size": 15}).all()
     return templates.TemplateResponse("yph_user.html", {"request": request, "error": "", "data": datas})
