@@ -1,23 +1,22 @@
 import logging
 import mysql.connector
-from db.mysql import db_pool
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from db.mysql import db_pool, get_db
+
 
 class MySQLHandler(logging.Handler):
-    def __init__(self, db_pool):
+    def __init__(self, db: Session):
         logging.Handler.__init__(self)
-        self.db_pool = db_pool
+        self.db = db
 
     def emit(self, record):
         if not record:
             return
-
-        connection = self.db_pool.get_connection()
-        cursor = connection.cursor()
-        query = "INSERT INTO log (logger_name, level, message) VALUES (%s, %s, %s)"
-        cursor.execute(query, (record.name, record.levelname, record.getMessage()))
-        connection.commit()
-        cursor.close()
-        connection.close()
+        query = text(f"INSERT INTO log (logger_name, level, message) VALUES (:logger_name, :level, :message)")
+        self.db.execute(query, {"logger_name": record.name, "message": record.getMessage(), "level": record.levelname})
+        self.db.commit()
 
 
 logger = logging.getLogger("fastapi_app")
@@ -26,7 +25,7 @@ logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # 将自定义的 MySQLHandler 添加到日志处理器中
-mysql_handler = MySQLHandler(db_pool)
+mysql_handler = MySQLHandler(next(get_db()))
 mysql_handler.setFormatter(formatter)
 logger.addHandler(mysql_handler)
 

@@ -1,4 +1,4 @@
-from fastapi import Request, HTTPException, status, Cookie
+from fastapi import Request, HTTPException, status, Cookie, Depends
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from jose import jwt, JWTError
@@ -6,9 +6,13 @@ from passlib.context import CryptContext
 from typing import Optional, Dict
 import os
 import datetime
-
-from db.mysql import db_pool
+from sqlalchemy.orm import Session
+from db.mysql import db_pool, get_db
 from db.redis import redis_client
+from sqlalchemy.sql import text
+from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String
+from db.mysql import Base
 
 # 配置
 SECRET_KEY = os.environ.get("SECRET_KEY", "mysecretkey")
@@ -22,38 +26,48 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-class User(BaseModel):
-    id: Optional[int]
-    username: str
-    cellphone: Optional[str]
-    email: Optional[str]
-    email_verified_at: Optional[str]
-    state: Optional[str]
-    nickname: Optional[str]
-    description: Optional[str]
-    gender: Optional[str]
-    avatar: Optional[str]
-    created_at: datetime.datetime
-    updated_at: datetime.datetime
-    password: Optional[str]
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    password = Column(String)
 
 
-def get_user(username: str):
-    connection = db_pool.get_connection()
-    cursor = connection.cursor(dictionary=True)
-    cursor.execute(f"SELECT * FROM users WHERE username=%s", (username,))
-    user_record = cursor.fetchone()
-    cursor.close()
-    connection.close()
-    return user_record
+# class User(BaseModel):
+#     id: Optional[int]
+#     username: str
+#     cellphone: Optional[str]
+#     email: Optional[str]
+#     email_verified_at: Optional[str]
+#     state: Optional[str]
+#     nickname: Optional[str]
+#     description: Optional[str]
+#     gender: Optional[str]
+#     avatar: Optional[str]
+#     created_at: datetime.datetime
+#     updated_at: datetime.datetime
+#     password: Optional[str]
+
+
+def get_user(username: str, db: Session):
+    query = text(f"SELECT * FROM users WHERE username = :username")
+    result = db.execute(query, {"username": username}).fetchone()
+    return result
+    # connection = db_pool.get_connection()
+    # cursor = connection.cursor(dictionary=True)
+    # cursor.execute(f"SELECT * FROM users WHERE username=%s", (username,))
+    # user_record = cursor.fetchone()
+    # cursor.close()
+    # connection.close()
+    # return user_record
 
 
 # 验证用户
-def authenticate_user(username: str, password: str):
-    user = get_user(username)
+def authenticate_user(username: str, password: str, db: Session):
+    user = get_user(username, db)
     if not user:
         return False
-    if not pwd_context.verify(password, user["password"]):
+    if not pwd_context.verify(password, user.password):
         return False
     return user
 
@@ -70,18 +84,14 @@ def create_access_token(data: Dict[str, str], expires_delta: Optional[datetime.t
     return encoded_jwt
 
 
-def save_token(user_id: int, token: str):
-    connection = db_pool.get_connection()
-    cursor = connection.cursor()
-    query = "INSERT INTO tokens (user_id, token) VALUES (%s, %s)"
-    cursor.execute(query, (user_id, token))
-    connection.commit()
-    cursor.close()
-    connection.close()
+def save_token(user_id: int, token: str, db: Session):
+    query = text(f"INSERT INTO tokens (user_id, token) VALUES (:user_id, :token)")
+    db.execute(query, {"user_id": user_id, "token": token})
+    db.commit()
 
 
 # 获取当前用户
-async def get_current_user(request: Request, access_token: Optional[str] = Cookie(None)):
+async def get_current_user(db: Session = Depends(get_db), access_token: Optional[str] = Cookie(None)):
     if not access_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -98,7 +108,7 @@ async def get_current_user(request: Request, access_token: Optional[str] = Cooki
     except JWTError:
         raise credentials_exception
 
-    user = get_user(username)
+    user = get_user(username, db)
     if user is None:
         raise credentials_exception
     return user
