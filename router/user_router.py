@@ -4,8 +4,8 @@ from fastapi.templating import Jinja2Templates
 from passlib.context import CryptContext
 from fastapi import Form
 from starlette.responses import HTMLResponse
-from db.mysql import get_db_connection
-from modules.user_module import authenticate_user, create_access_token, get_current_user, User
+from db.mysql import db_pool
+from modules.user_module import authenticate_user, create_access_token, get_current_user, User, save_token
 
 # 密码加密
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -20,8 +20,10 @@ async def home(request: Request):
 
 @router.post("/login", response_class=HTMLResponse)
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
-    if authenticate_user(username, password):
+    user = authenticate_user(username, password)
+    if user:
         access_token = create_access_token(data={"sub": username})
+        save_token(user['id'], access_token)  # 保存 JWT 到数据库
         response = RedirectResponse(url="/dashboard", status_code=status.HTTP_303_SEE_OTHER)
         response.set_cookie(
             key="access_token",
@@ -38,7 +40,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
 
 @router.post("/register", response_class=HTMLResponse)
 async def register(request: Request, username: str = Form(...), password: str = Form(...)):
-    connection = get_db_connection()
+    connection = db_pool.get_connection()
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
     existing_user = cursor.fetchone()

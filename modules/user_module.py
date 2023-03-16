@@ -1,4 +1,4 @@
-from fastapi import  Request, HTTPException, status, Cookie
+from fastapi import Request, HTTPException, status, Cookie
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from jose import jwt, JWTError
@@ -7,8 +7,7 @@ from typing import Optional, Dict
 import os
 import datetime
 
-
-from db.mysql import get_db_connection
+from db.mysql import db_pool
 
 # 配置
 SECRET_KEY = os.environ.get("SECRET_KEY", "mysecretkey")
@@ -23,7 +22,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class User(BaseModel):
-    # id: int
+    id: Optional[int]
     username: str
     password: str
     # cellphone: str
@@ -40,7 +39,7 @@ class User(BaseModel):
 
 
 def get_user(username: str):
-    connection = get_db_connection()
+    connection = db_pool.get_connection()
     cursor = connection.cursor(dictionary=True)
     cursor.execute(f"SELECT * FROM users WHERE username=%s", (username,))
     user_record = cursor.fetchone()
@@ -56,7 +55,7 @@ def authenticate_user(username: str, password: str):
         return False
     if not pwd_context.verify(password, user["password"]):
         return False
-    return True
+    return user
 
 
 # 创建访问令牌
@@ -69,6 +68,16 @@ def create_access_token(data: Dict[str, str], expires_delta: Optional[datetime.t
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def save_token(user_id: int, token: str):
+    connection = db_pool.get_connection()
+    cursor = connection.cursor()
+    query = "INSERT INTO tokens (user_id, token) VALUES (%s, %s)"
+    cursor.execute(query, (user_id, token))
+    connection.commit()
+    cursor.close()
+    connection.close()
 
 
 # 获取当前用户
