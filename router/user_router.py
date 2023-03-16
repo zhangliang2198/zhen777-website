@@ -7,7 +7,7 @@ from sqlalchemy import text
 from starlette.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from crfsutil import generate_csrf_token, validate_csrf_token
-from db.mysql import db_pool, get_db
+from db.mysql import get_db
 from logger import logger
 from modules.user_module import authenticate_user, create_access_token, get_current_user, User, save_token, \
     save_token_to_redis, is_authenticated, delete_token_from_redis

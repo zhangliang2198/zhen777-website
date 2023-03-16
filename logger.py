@@ -3,7 +3,7 @@ import mysql.connector
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from db.mysql import db_pool, get_db
+from db.mysql import get_db
 
 
 class MySQLHandler(logging.Handler):

@@ -7,7 +7,7 @@ from typing import Optional, Dict
 import os
 import datetime
 from sqlalchemy.orm import Session
-from db.mysql import db_pool, get_db
+from db.mysql import get_db
 from db.redis import redis_client
 from sqlalchemy.sql import text
 from sqlalchemy import Column, Integer, String
@@ -53,14 +53,6 @@ def get_user(username: str, db: Session):
     query = text(f"SELECT * FROM users WHERE username = :username")
     result = db.execute(query, {"username": username}).fetchone()
     return result
-    # connection = db_pool.get_connection()
-    # cursor = connection.cursor(dictionary=True)
-    # cursor.execute(f"SELECT * FROM users WHERE username=%s", (username,))
-    # user_record = cursor.fetchone()
-    # cursor.close()
-    # connection.close()
-    # return user_record
-
 
 # 验证用户
 def authenticate_user(username: str, password: str, db: Session):
