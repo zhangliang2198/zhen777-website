@@ -1,21 +1,35 @@
 <!DOCTYPE html>
-<html lang="zh-cn">
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
     <title>Login</title>
 </head>
 <body>
-{% if error %}
-    <div>{{ error }}</div>
-{% endif %}
-    <form action="/login" method="post">
-        <label>
-            <input type="text" name="username" placeholder="Username" required>
-        </label>
-        <label>
-            <input type="password" name="password" placeholder="Password" required>
-        </label>
-        <button type="submit">Login</button>
-    </form>
-<p>没有账号?点此注册 <a href="/register">注册</a></p>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Login</h1>
+        <div class="row justify-content-center">
+            <div class="col-md-4">
+                <form action="/login" method="post">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    {% if error %}
+                        <div class="alert alert-danger">{{ error }}</div>
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+                <p class="mt-3">Don't have an account? <a href="/register">Register</a></p>
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
