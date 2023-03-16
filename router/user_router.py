@@ -5,6 +5,7 @@ from passlib.context import CryptContext
 from fastapi import Form
 from starlette.responses import HTMLResponse
 from db.mysql import db_pool
+from logger import logger
 from modules.user_module import authenticate_user, create_access_token, get_current_user, User, save_token
 
 # 密码加密
@@ -15,6 +16,7 @@ router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse)
 async def home(request: Request):
+    logger.info("首页面访问")
     return templates.TemplateResponse("login.html", {"request": request, "error": None})
 
 
@@ -33,8 +35,10 @@ async def login(request: Request, username: str = Form(...), password: str = For
             expires=1800,
             path="/",
         )
+        logger.info(f"用户登录成功:%s", username)
         return response
     else:
+        logger.warn(f"用户登录失败:%s", username)
         return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid username or password."})
 
 
