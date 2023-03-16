@@ -24,18 +24,17 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 class User(BaseModel):
     id: Optional[int]
     username: str
-    password: str
-    # cellphone: str
-    # email: str
-    # email_verified_at: str
-    # state: str
-    # nickname: str
-    # description: str
-    # gender: str
-    # avatar: str
-    # created_at: int
-    # updated_at: int
-    # password: Optional[str]
+    cellphone: Optional[str]
+    email: Optional[str]
+    email_verified_at: Optional[str]
+    state: Optional[str]
+    nickname: Optional[str]
+    description: Optional[str]
+    gender: Optional[str]
+    avatar: Optional[str]
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+    password: Optional[str]
 
 
 def get_user(username: str):
