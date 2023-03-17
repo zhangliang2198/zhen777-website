@@ -5,16 +5,24 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.triggers.cron import CronTrigger
 from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
-
+from apscheduler.executors.pool import ThreadPoolExecutor
 from modules.sys_task import Task, get_tasks, TaskCreate, TaskOut, TaskUpdate
 from db.mysql import get_db
 from utils import get_function_from_string
+from apscheduler.triggers.interval import IntervalTrigger
 
 router_task = APIRouter()
 jobstores = {
     'default': SQLAlchemyJobStore(url='mysql+mysqlconnector://root:Meili163!!@8.219.53.116/openai')
 }
-scheduler = AsyncIOScheduler(jobstores=jobstores)
+executors = {
+    'default': ThreadPoolExecutor(5)
+}
+job_defaults = {
+    'coalesce': False,
+    'max_instances': 3
+}
+scheduler = AsyncIOScheduler(jobstores=jobstores, executors=executors, job_defaults=job_defaults)
 templates = Jinja2Templates(directory="templates")
 
 
@@ -41,12 +49,18 @@ async def create_task(task_name: str = Form(...),
 @router_task.post("/tasks/{task_id}/start")
 async def start_task(task_id: int, db: Session = Depends(get_db)):
     task = db.query(Task).get(task_id)
+
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
+    task.is_active = 1
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+
     scheduler.add_job(
-        get_function_from_string(task.func),
-        CronTrigger.from_crontab(task.cron),
+        func=get_function_from_string(task.func),
+        trigger=IntervalTrigger(seconds=int(task.cron)),
         id=str(task.id),
         replace_existing=True
     )
@@ -59,6 +73,11 @@ async def stop_task(task_id: int, db: Session = Depends(get_db)):
     task = db.query(Task).get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    task.is_active = 0
+    db.add(task)
+    db.commit()
+    db.refresh(task)
 
     scheduler.remove_job(str(task.id))
 
