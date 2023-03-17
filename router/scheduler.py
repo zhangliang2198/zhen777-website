@@ -26,6 +26,24 @@ scheduler = AsyncIOScheduler(jobstores=jobstores, executors=executors, job_defau
 templates = Jinja2Templates(directory="templates")
 
 
+async def init_job():
+    db = next(get_db())
+    tasks = get_tasks(db, 0, 1000)
+
+    # 先清理掉所有的
+    scheduler.remove_all_jobs()
+    for task in tasks:
+        if task.is_active:
+            scheduler.add_job(
+                func=get_function_from_string(task.func),
+                trigger=IntervalTrigger(seconds=int(task.cron)),
+                id=str(task.id),
+                replace_existing=True
+            )
+
+    scheduler.start()
+
+
 @router_task.get("/tasks", response_class=HTMLResponse)
 async def display_tasks(request: Request, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     tasks = get_tasks(db, skip=skip, limit=limit)
@@ -146,5 +164,4 @@ async def update_task(task_id: int,
     db.add(task)
     db.commit()
     db.refresh(task)
-
     return {"message": "Task updated successfully", "task": task}
