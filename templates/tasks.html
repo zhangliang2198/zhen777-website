@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Scheduler</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+    <h2>Create Task</h2>
+    <form action="/tasks/create" method="post">
+        <div class="mb-3">
+            <label for="task_name" class="form-label">Task Name</label>
+            <input type="text" class="form-control" id="task_name" name="task_name">
+        </div>
+        <div class="mb-3">
+            <label for="task_func" class="form-label">Task Function</label>
+            <input type="text" class="form-control" id="task_func" name="task_func">
+        </div>
+        <div class="mb-3">
+            <label for="task_cron" class="form-label">Cron Expression</label>
+            <input type="text" class="form-control" id="task_cron" name="task_cron">
+        </div>
+        <button type="submit" class="btn btn-primary">Create Task</button>
+    </form>
+</div>
+<div class="container mt-5">
+    <h1>Task Scheduler</h1>
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Function</th>
+            <th>Cron</th>
+            <th>Active</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for task in tasks %}
+        <tr>
+            <td>{{ task.id }}</td>
+            <td>{{ task.name }}</td>
+            <td>{{ task.func }}</td>
+            <td>{{ task.cron }}</td>
+            <td>{{ task.is_active }}</td>
+            <td>
+                <button class="btn btn-primary" onclick="startTask({{ task.id }})">Start</button>
+                <button class="btn btn-secondary" onclick="stopTask({{ task.id }})">Stop</button>
+                <button class="btn btn-warning" onclick="pauseTask({{ task.id }})">Pause</button>
+                <button class="btn btn-success" onclick="resumeTask({{ task.id }})">Resume</button>
+                <button class="btn btn-danger" onclick="deleteTask({{ task.id }})">Delete</button>
+                <a href="{{ url_for('edit_task', task_id=task.id) }}" class="btn btn-sm btn-primary">Edit</a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    async function startTask(taskId) {
+        const response = await fetch(`/tasks/${taskId}/start`, {method: 'POST'});
+        const data = await response.json();
+        alert(data.detail);
+    }
+
+    async function stopTask(taskId) {
+        const response = await fetch(`/tasks/${taskId}/stop`, {method: 'POST'});
+        const data = await response.json();
+        alert(data.detail);
+    }
+
+    async function pauseTask(taskId) {
+        const response = await fetch(`/tasks/${taskId}/pause`, {method: 'POST'});
+        const data = await response.json();
+        alert(data.detail);
+    }
+
+    async function resumeTask(taskId) {
+        const response = await fetch(`/tasks/${taskId}/resume`, {method: 'POST'});
+        const data = await response.json();
+        alert(data.detail);
+    }
+
+    async function deleteTask(taskId) {
+        const response = await fetch(`/tasks/${taskId}`, {method: 'DELETE'});
+        const data = await response.json();
+        alert(data.detail);
+        location.reload();
+    }
+</script>
+
+<!-- Add Bootstrap JS -->
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

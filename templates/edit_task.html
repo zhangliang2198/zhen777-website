@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Task</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Edit Task</h1>
+
+        <form action="{{ url_for('update_task', task_id=task.id) }}" method="post">
+            <div class="mb-3">
+                <label for="task_name" class="form-label">Task Name</label>
+                <input type="text" class="form-control" id="task_name" name="task_name" value="{{ task.name }}">
+            </div>
+            <div class="mb-3">
+                <label for="task_func" class="form-label">Task Function</label>
+                <input type="text" class="form-control" id="task_func" name="task_func" value="{{ task.func }}">
+            </div>
+            <div class="mb-3">
+                <label for="task_cron" class="form-label">Cron Expression</label>
+                <input type="text" class="form-control" id="task_cron" name="task_cron" value="{{ task.cron }}">
+            </div>
+            <button type="submit" class="btn btn-primary">Update Task</button>
+        </form>
+    </div>
+
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

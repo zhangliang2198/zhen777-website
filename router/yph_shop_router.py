@@ -4,7 +4,7 @@ from starlette.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from starlette.templating import Jinja2Templates
 
-from db.mysql import get_db, get_db_yph
+from db.mysql import get_db_yph
 
 router_yph = APIRouter()
 
