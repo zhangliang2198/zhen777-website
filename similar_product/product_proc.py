@@ -28,7 +28,7 @@ def tokenize_and_remove_stopwords(text):
     return [t for t in tokens if t not in stopwords and not t.isspace()]
 
 
-def process_product(curr: int = 0, size: int = 10000):
+def process_product(curr: int = 0, size: int = 100000):
     # 分词和停用词移除
     db = next(get_db_yph())
     query = text(
@@ -61,8 +61,8 @@ def process_product(curr: int = 0, size: int = 10000):
         DataHolder.word_vec_info.append(np.mean(vectors, axis=0))
     print("计算词向量,并保存")
     # 得到相似度矩阵
-    DataHolder.similarity_matrix_word = cosine_similarity(np.array([item for item in DataHolder.word_vec_info]))
-    print("得到word2vec相似度矩阵")
+    # DataHolder.similarity_matrix_word = cosine_similarity(np.array([item for item in DataHolder.word_vec_info]))
+    # print("得到word2vec相似度矩阵")
     # 向量数据写入数据库，供之后查询相似
     # for index in range(0, len(meta_list_keys)):
     #     db_data = GoodsVec(goodsId=meta_list_keys[index], word2vec=0, word2vec_vec=json.dumps(Y[index].tolist()),
