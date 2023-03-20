@@ -8,6 +8,8 @@ import json
 from db.mysql import get_db_yph
 from gensim.models import Word2Vec
 from sklearn.metrics.pairwise import cosine_similarity
+from concurrent.futures import ThreadPoolExecutor
+from db.redis import redis_client
 
 
 class DataHolder(object):
@@ -31,6 +33,7 @@ def tokenize_and_remove_stopwords(text):
 
 
 def process_product(curr: int = 0, size: int = 50000):
+    redis_client.flushdb()
     # 分词和停用词移除
     db = next(get_db_yph())
     query = text(
@@ -65,6 +68,7 @@ def process_product(curr: int = 0, size: int = 50000):
     # 得到相似度矩阵
     DataHolder.similarity_matrix_word = find_top_k_similar_items(DataHolder.word_vec_info, 20)
     print("得到word2vec相似度矩阵")
+
     # 向量数据写入数据库，供之后查询相似
     # for index in range(0, len(meta_list_keys)):
     #     db_data = GoodsVec(goodsId=meta_list_keys[index], word2vec=0, word2vec_vec=json.dumps(Y[index].tolist()),
@@ -81,15 +85,29 @@ def batch(iterable, batch_size):
         yield iterable[i:i + batch_size]
 
 
-# 计算所有商品与所有商品的余弦相似度，并返回前k个最相似商品的索引
-def find_top_k_similar_items(vectors, k, batch_size=10000):
-    top_k_indices_list = []
 
+
+
+
+
+# 计算所有商品与所有商品的余弦相似度，并返回前k个最相似商品的索引
+def find_top_k_similar_items(vectors, k, batch_size=1):
+    top_k_indices_list = []
+    index = 0
     for vector_group in batch(vectors, batch_size):
         batch_similarities = cosine_similarity(vector_group, vectors)
         # 找到前k个最相似商品的索引
         top_k_batch_indices = np.argpartition(batch_similarities, -k)[:, -k:]
-        top_k_indices_list.extend(top_k_batch_indices)
+        # 直接往redis中存储，不保存，注意这里是索引需要转换成ID
+        ids = [DataHolder.meta_list_id[pos] for pos in top_k_batch_indices.tolist()[0]]
+        reversed(ids)
+        redis_client.set(f"product:{index}:similar", json.dumps(ids))
+        # top_k_indices_list.extend(top_k_batch_indices)
+        index += 1
+        del batch_similarities
+        del top_k_batch_indices
+        del ids
+
     return np.array(top_k_indices_list)
 
 
@@ -104,13 +122,14 @@ def find_similar_products(query_id, top_n=5):
     if index == -1:
         return []
 
-    sim_scores = list(enumerate(DataHolder.similarity_matrix_word[index]))
-    sim_scores = sorted(sim_scores, key=lambda x: x[0], reverse=True)
-    print(sim_scores)
-    most_similar_products = tuple([DataHolder.meta_list_id[k] for i, k in sim_scores[1:top_n + 1]])
+    # sim_scores = list(enumerate(DataHolder.similarity_matrix_word[index]))
+    sim_scores = json.loads(redis_client.get(f"product:{index}:similar"))
+    # sim_scores = sorted(sim_scores, key=lambda x: x[0], reverse=True)
+    # most_similar_products = tuple([DataHolder.meta_list_id[k] for i, k in sim_scores[1:top_n + 1]])
+
     db = next(get_db_yph())
-    print(most_similar_products)
-    id_list = list(most_similar_products)
+    id_list = list(sim_scores[0:top_n])
+    most_similar_products = tuple(id_list)
     id_str = reduce(lambda x, y: str(x) + "," + str(y), id_list)
     query = text(
         f"SELECT `goods_id`,`supplier_code`,`goods_name`,`goods_desc`,`brand_name`,`goods_spec`,`goods_original_price`,`goods_original_naked_price`,`goods_pact_price`,`goods_pact_naked_price` FROM `shop_goods` AS `a` INNER JOIN `shop_goods_detail` AS `b` ON `a`.`goods_id`=`b`.`id` INNER JOIN `shop_goods_price` AS `c` ON `c`.`goods_code`=`b`.`goods_code` WHERE `a`.`tenant_id`=1 AND a.goods_id IN {most_similar_products} order by field(a.goods_id,{id_str})")
