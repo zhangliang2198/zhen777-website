@@ -22,7 +22,7 @@ class DataHolder(object):
     meta_list_values = []
     similarity_matrix_td = []
     similarity_matrix_word = []
-    # model: Word2Vec
+    model: Word2Vec
 
 
 # 将停用词组成一个set
@@ -31,7 +31,7 @@ with open("./files/stopwords.txt", "r", encoding="utf-8") as f:
 
 
 # 加载Word2vec模型
-wv_model = KeyedVectors.load_word2vec_format('./files/tencent-ailab-embedding-zh-d200-v0.2.0-s.txt')
+# wv_model = KeyedVectors.load_word2vec_format('./files/tencent-ailab-embedding-zh-d200-v0.2.0-s.txt', binary=True)
 
 
 # 切词，返回切词后的列表
@@ -40,7 +40,7 @@ def tokenize_and_remove_stopwords(sentence):
     return [t for t in tokens if t not in stopwords and not t.isspace()]
 
 
-def process_product(curr: int = 0, size: int = 10000):
+def process_product(curr: int = 0, size: int = 600000):
     # redis_client.flushdb()
     # 分词和停用词移除
     db = next(get_db_yph())
@@ -77,16 +77,16 @@ def process_product(curr: int = 0, size: int = 10000):
     print("得到Tfidf相似度矩阵完成")
     # 训练Word2Vec模型
     # 每个sentence这里是一个列表["fwewef,"123123"]
-    # sentences = [x for x in DataHolder.meta_list_values]
-    # DataHolder.model = Word2Vec(sentences, vector_size=100, window=2, min_count=1, workers=16)
+    sentences = [x for x in DataHolder.meta_list_values]
+    DataHolder.model = Word2Vec(sentences, vector_size=100, window=2, min_count=1, workers=16)
     print("训练Word2Vec模型完成")
     # 计算词向量,并保存
     for item in DataHolder.meta_list_values:
         # 针对每项 分过词的列表，一个token是一个单词，拿到这个token的 词向量数据，词向量数据是一个 【token数量 * 100】 的二维数组，
-        vectors = [wv_model[token] for token in item if token in wv_model]
+        vectors = [DataHolder.model.wv[token] for token in item if token in DataHolder.model.wv.key_to_index]
         if not vectors:
             # 如果找不到这个100维的向量值，则用100维度的 0 替代
-            DataHolder.word_vec_info.append(np.zeros(wv_model.vector_size))
+            DataHolder.word_vec_info.append(np.zeros(DataHolder.model.vector_size))
         # 如果找的到 则在 word_vec_info 对应的索引添加 【token数量 * 100】维度向量的每一列的平均值，得到一个100个数据的一维数组，表示当前sentence的向量值
         else:
             DataHolder.word_vec_info.append(np.mean(vectors, axis=0))
@@ -160,15 +160,15 @@ def find_similar_products(query_id, top_n=5):
         str(item.goods_name) + str(item.goods_desc) + str(item.brand_name) + str(item.goods_spec))
         for item in datas_org][0]
 
-    vectors = [wv_model[token] for token in org_token if token in wv_model]
+    vectors = [DataHolder.model.wv[token] for token in org_token if token in DataHolder.model.wv.key_to_index]
     if not vectors:
         # 如果找不到这个100维的向量值，则用100维度的 0 替代
-        c_mean = np.zeros(wv_model.vector_size)
+        c_mean = np.zeros(DataHolder.model.vector_size)
     # 如果找的到 则在 word_vec_info 对应的索引添加 【token数量 * 100】维度向量的每一列的平均值，得到一个100个数据的一维数组，表示当前sentence的向量值
     else:
         c_mean = np.mean(vectors, axis=0)
 
-    org_vec = cosine_similarity(c_mean, DataHolder.word_vec_info).flatten()
+    org_vec = cosine_similarity(c_mean.reshape(1, -1), DataHolder.word_vec_info).flatten()
     # 找到前k个最相似商品的索引.argpartition 默认按最后一个真正的余弦相似度【这里其实有3个维度了】，也就是真实的相似度
     top_k_batch_indices = np.argpartition(org_vec, -top_n)[-top_n:]
     # 直接往redis中存储，不保存，注意这里是索引需要转换成ID
