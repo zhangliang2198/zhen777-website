@@ -53,7 +53,7 @@ async def find_es(request: Request, goods_name: str = Form(...)):
             "must": [
                 {
                     "match": {
-                        "textForSearch": "杯子"
+                        "textForSearch": goods_name
                     }
                 },
                 {
