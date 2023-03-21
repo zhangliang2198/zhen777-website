@@ -48,26 +48,22 @@ async def find_es(request: Request):
 
 @router_yph.post("/find_es", response_class=HTMLResponse)
 async def find_es(request: Request, goods_name: str = Form(...)):
-    body = {
-        "query":
-            {
-                "bool": {
-                    "must": [
-                        {
-                            "match": {
-                                "textForSearch": "杯子"
-                            }
-                        },
-                        {
-                            "term": {
-                                "tenantIds": "1"
-                            }
-                        }
-                    ]
+    body = {"query": {
+        "bool": {
+            "must": [
+                {
+                    "match": {
+                        "textForSearch": "杯子"
+                    }
+                },
+                {
+                    "term": {
+                        "tenantIds": "1"
+                    }
                 }
-
-            }
-    }
+            ]
+        }
+    }}
     response = es.search(index="goods", body=body)
 
     datas = []
