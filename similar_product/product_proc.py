@@ -6,9 +6,10 @@ from sqlalchemy import text
 import numpy as np
 import json
 from db.mysql import get_db_yph
-from gensim.models import Word2Vec
+from gensim.models import Word2Vec, KeyedVectors
 from sklearn.metrics.pairwise import cosine_similarity
 from concurrent.futures import ThreadPoolExecutor
+
 from db.redis import redis_client
 
 
@@ -27,13 +28,17 @@ with open("./files/stopwords.txt", "r", encoding="utf-8") as f:
 print(stopwords)
 
 
+# 加载Word2vec模型
+# wv_model = KeyedVectors.load_word2vec_format('./files/tencent-ailab-embedding-zh-d200-v0.2.0-s.txt', binary=True)
+
+
 def tokenize_and_remove_stopwords(text):
     tokens = jieba.cut(text)
     return [t for t in tokens if t not in stopwords and not t.isspace()]
 
 
-def process_product(curr: int = 0, size: int = 50000):
-    redis_client.flushdb()
+def process_product(curr: int = 0, size: int = 600000):
+    # redis_client.flushdb()
     # 分词和停用词移除
     db = next(get_db_yph())
     query = text(
@@ -43,7 +48,7 @@ def process_product(curr: int = 0, size: int = 50000):
     DataHolder.meta_list_id = [item.goods_id for item in data]
     DataHolder.meta_list_supplier = [item.supplier_code for item in data]
     DataHolder.meta_list_values = [
-        tokenize_and_remove_stopwords(item.goods_name + item.goods_desc + item.brand_name + item.goods_spec) for item in
+        tokenize_and_remove_stopwords(str(item.goods_name) + str(item.goods_desc) + str(item.brand_name) + str(item.goods_spec)) for item in
         data]
     print("分词完成")
     # 得到稀疏矩阵
@@ -56,7 +61,7 @@ def process_product(curr: int = 0, size: int = 50000):
     print("得到Tfidf相似度矩阵完成")
     # 训练Word2Vec模型
     sentences = [x for x in DataHolder.meta_list_values]
-    model = Word2Vec(sentences, vector_size=100, window=3, min_count=1, workers=16)
+    model = Word2Vec(sentences, vector_size=100, window=2, min_count=1, workers=16)
     print("训练Word2Vec模型完成")
     # 计算词向量,并保存
     for item in DataHolder.meta_list_values:
@@ -85,11 +90,6 @@ def batch(iterable, batch_size):
         yield iterable[i:i + batch_size]
 
 
-
-
-
-
-
 # 计算所有商品与所有商品的余弦相似度，并返回前k个最相似商品的索引
 def find_top_k_similar_items(vectors, k, batch_size=1):
     top_k_indices_list = []
@@ -100,8 +100,7 @@ def find_top_k_similar_items(vectors, k, batch_size=1):
         top_k_batch_indices = np.argpartition(batch_similarities, -k)[:, -k:]
         # 直接往redis中存储，不保存，注意这里是索引需要转换成ID
         ids = [DataHolder.meta_list_id[pos] for pos in top_k_batch_indices.tolist()[0]]
-        reversed(ids)
-        redis_client.set(f"product:{index}:similar", json.dumps(ids))
+        redis_client.set(f"product:{DataHolder.meta_list_id[index]}:similar", json.dumps(ids))
         # top_k_indices_list.extend(top_k_batch_indices)
         index += 1
         del batch_similarities
@@ -112,24 +111,20 @@ def find_top_k_similar_items(vectors, k, batch_size=1):
 
 
 def find_similar_products(query_id, top_n=5):
-    # 找到商品所在的位置
-    index = -1
-    for i, item in enumerate(DataHolder.meta_list_id):
-        if str(item) == str(query_id):
-            index = i
-            break
-
-    if index == -1:
-        return []
-
     # sim_scores = list(enumerate(DataHolder.similarity_matrix_word[index]))
-    sim_scores = json.loads(redis_client.get(f"product:{index}:similar"))
+    sim_scores = json.loads(redis_client.get(f"product:{query_id}:similar"))
     # sim_scores = sorted(sim_scores, key=lambda x: x[0], reverse=True)
     # most_similar_products = tuple([DataHolder.meta_list_id[k] for i, k in sim_scores[1:top_n + 1]])
 
     db = next(get_db_yph())
-    id_list = list(sim_scores[0:top_n])
+    # 翻转列表
+    id_list = list(sim_scores[0:top_n])[::-1]
+    print(id_list)
+
+    # 改成元组，查询用
     most_similar_products = tuple(id_list)
+
+    # 拼接查询参数
     id_str = reduce(lambda x, y: str(x) + "," + str(y), id_list)
     query = text(
         f"SELECT `goods_id`,`supplier_code`,`goods_name`,`goods_desc`,`brand_name`,`goods_spec`,`goods_original_price`,`goods_original_naked_price`,`goods_pact_price`,`goods_pact_naked_price` FROM `shop_goods` AS `a` INNER JOIN `shop_goods_detail` AS `b` ON `a`.`goods_id`=`b`.`id` INNER JOIN `shop_goods_price` AS `c` ON `c`.`goods_code`=`b`.`goods_code` WHERE `a`.`tenant_id`=1 AND a.goods_id IN {most_similar_products} order by field(a.goods_id,{id_str})")
