@@ -1,3 +1,4 @@
+import threading
 from functools import reduce
 
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -21,23 +22,25 @@ class DataHolder(object):
     meta_list_values = []
     similarity_matrix_td = []
     similarity_matrix_word = []
+    # model: Word2Vec
 
 
+# 将停用词组成一个set
 with open("./files/stopwords.txt", "r", encoding="utf-8") as f:
     stopwords = set(f.read().splitlines())
-print(stopwords)
 
 
 # 加载Word2vec模型
-# wv_model = KeyedVectors.load_word2vec_format('./files/tencent-ailab-embedding-zh-d200-v0.2.0-s.txt', binary=True)
+wv_model = KeyedVectors.load_word2vec_format('./files/tencent-ailab-embedding-zh-d200-v0.2.0-s.txt')
 
 
-def tokenize_and_remove_stopwords(text):
-    tokens = jieba.cut(text)
+# 切词，返回切词后的列表
+def tokenize_and_remove_stopwords(sentence):
+    tokens = jieba.cut(sentence)
     return [t for t in tokens if t not in stopwords and not t.isspace()]
 
 
-def process_product(curr: int = 0, size: int = 600000):
+def process_product(curr: int = 0, size: int = 10000):
     # redis_client.flushdb()
     # 分词和停用词移除
     db = next(get_db_yph())
@@ -47,8 +50,21 @@ def process_product(curr: int = 0, size: int = 600000):
     print("开始初始化数据")
     DataHolder.meta_list_id = [item.goods_id for item in data]
     DataHolder.meta_list_supplier = [item.supplier_code for item in data]
+
+    # # 使用多线程进行分词
+    # batch_size = len(vectors) // num_threads
+    # threads = []
+    # for i in range(num_threads):
+    #     start = i * chunk_size
+    #     # 最后一部分用,使用 vectors.shape 的长度  即：vectors.shape[0]
+    #     end = (i + 1) * chunk_size if i < num_threads - 1 else vectors.shape[0]
+    #     thread = threading.Thread(target=find_top_k_similar_items, args=(vectors, k, start, end, 5))
+    #     threads.append(thread)
+    #     thread.start()
+
     DataHolder.meta_list_values = [
-        tokenize_and_remove_stopwords(str(item.goods_name) + str(item.goods_desc) + str(item.brand_name) + str(item.goods_spec)) for item in
+        tokenize_and_remove_stopwords(
+            str(item.goods_name) + str(item.goods_desc) + str(item.brand_name) + str(item.goods_spec)) for item in
         data]
     print("分词完成")
     # 得到稀疏矩阵
@@ -60,18 +76,24 @@ def process_product(curr: int = 0, size: int = 600000):
     # DataHolder.similarity_matrix_td = cosine_similarity(DataHolder.td_vec_info)
     print("得到Tfidf相似度矩阵完成")
     # 训练Word2Vec模型
-    sentences = [x for x in DataHolder.meta_list_values]
-    model = Word2Vec(sentences, vector_size=100, window=2, min_count=1, workers=16)
+    # 每个sentence这里是一个列表["fwewef,"123123"]
+    # sentences = [x for x in DataHolder.meta_list_values]
+    # DataHolder.model = Word2Vec(sentences, vector_size=100, window=2, min_count=1, workers=16)
     print("训练Word2Vec模型完成")
     # 计算词向量,并保存
     for item in DataHolder.meta_list_values:
-        vectors = [model.wv[token] for token in item if token in model.wv.key_to_index]
+        # 针对每项 分过词的列表，一个token是一个单词，拿到这个token的 词向量数据，词向量数据是一个 【token数量 * 100】 的二维数组，
+        vectors = [wv_model[token] for token in item if token in wv_model]
         if not vectors:
-            DataHolder.word_vec_info.append(np.zeros(model.vector_size))
-        DataHolder.word_vec_info.append(np.mean(vectors, axis=0))
+            # 如果找不到这个100维的向量值，则用100维度的 0 替代
+            DataHolder.word_vec_info.append(np.zeros(wv_model.vector_size))
+        # 如果找的到 则在 word_vec_info 对应的索引添加 【token数量 * 100】维度向量的每一列的平均值，得到一个100个数据的一维数组，表示当前sentence的向量值
+        else:
+            DataHolder.word_vec_info.append(np.mean(vectors, axis=0))
     print("计算词向量,并保存")
-    # 得到相似度矩阵
-    DataHolder.similarity_matrix_word = find_top_k_similar_items(DataHolder.word_vec_info, 20)
+    # 得到相似度矩阵，只取前20个相似商品，这里是不是可以进行多线程的优化
+    # DataHolder.similarity_matrix_word = find_top_k_similar_items(DataHolder.word_vec_info, 20)
+    # mult_find(np.array(DataHolder.word_vec_info), 20, 5, 32)
     print("得到word2vec相似度矩阵")
 
     # 向量数据写入数据库，供之后查询相似
@@ -85,42 +107,83 @@ def process_product(curr: int = 0, size: int = 600000):
 
 
 # 将向量数据分成批次
+# 通过生成器，每次取 batch_size个数据出来
 def batch(iterable, batch_size):
     for i in range(0, len(iterable), batch_size):
         yield iterable[i:i + batch_size]
 
 
+# 异步计算，不影响主程序执行
+def mult_find(vectors, k, batch_size=5, num_threads=32):
+    chunk_size = len(vectors) // num_threads
+    threads = []
+    for i in range(num_threads):
+        start = i * chunk_size
+        # 最后一部分用,使用 vectors.shape 的长度  即：vectors.shape[0]
+        end = (i + 1) * chunk_size if i < num_threads - 1 else vectors.shape[0]
+        thread = threading.Thread(target=find_top_k_similar_items, args=(vectors, k, start, end, 5))
+        threads.append(thread)
+        thread.start()
+
+
 # 计算所有商品与所有商品的余弦相似度，并返回前k个最相似商品的索引
-def find_top_k_similar_items(vectors, k, batch_size=1):
-    top_k_indices_list = []
-    index = 0
-    for vector_group in batch(vectors, batch_size):
-        batch_similarities = cosine_similarity(vector_group, vectors)
-        # 找到前k个最相似商品的索引
-        top_k_batch_indices = np.argpartition(batch_similarities, -k)[:, -k:]
+def find_top_k_similar_items(vectors, k, start, end, batch_size=5):
+    # vectors 是一个包含所有 sentence 向量值【100个数】的 列表
+    # for vector_group in batch(vectors, batch_size):
+    for index in range(start, end):
+        print(vectors[index])
+        # 使用reshape(1, -1)，转换为一行的矩阵，flatten()使用flatten又转为数组
+        batch_similarities = cosine_similarity(vectors[index].reshape(1, -1), vectors).flatten()
+
+        # 找到前k个最相似商品的索引.argpartition 默认按最后一个真正的余弦相似度【这里其实有3个维度了】，也就是真实的相似度
+        top_k_batch_indices = np.argpartition(batch_similarities, -k)[-k:]
         # 直接往redis中存储，不保存，注意这里是索引需要转换成ID
-        ids = [DataHolder.meta_list_id[pos] for pos in top_k_batch_indices.tolist()[0]]
+
+        # top_k_batch_indices.tolist()[0]。表示位置，因为用 np.argpartition 进行了排序
+        ids = [DataHolder.meta_list_id[pos] for pos in top_k_batch_indices.tolist()]
         redis_client.set(f"product:{DataHolder.meta_list_id[index]}:similar", json.dumps(ids))
-        # top_k_indices_list.extend(top_k_batch_indices)
-        index += 1
+
         del batch_similarities
         del top_k_batch_indices
         del ids
 
-    return np.array(top_k_indices_list)
+    # return np.array(top_k_indices_list)
 
 
 def find_similar_products(query_id, top_n=5):
+    db = next(get_db_yph())
+    datas_org = db.execute(text(
+        f"SELECT `goods_id`,`supplier_code`,`goods_name`,`goods_desc`,`brand_name`,`goods_spec`,`goods_original_price`,`goods_original_naked_price`,`goods_pact_price`,`goods_pact_naked_price` FROM `shop_goods` AS `a` INNER JOIN `shop_goods_detail` AS `b` ON `a`.`goods_id`=`b`.`id` INNER JOIN `shop_goods_price` AS `c` ON `c`.`goods_code`=`b`.`goods_code` WHERE `a`.`tenant_id`=1 AND `a`.`goods_id`= :goods_id"),
+        {"goods_id": query_id})
+
+    org_token = [tokenize_and_remove_stopwords(
+        str(item.goods_name) + str(item.goods_desc) + str(item.brand_name) + str(item.goods_spec))
+        for item in datas_org][0]
+
+    vectors = [wv_model[token] for token in org_token if token in wv_model]
+    if not vectors:
+        # 如果找不到这个100维的向量值，则用100维度的 0 替代
+        c_mean = np.zeros(wv_model.vector_size)
+    # 如果找的到 则在 word_vec_info 对应的索引添加 【token数量 * 100】维度向量的每一列的平均值，得到一个100个数据的一维数组，表示当前sentence的向量值
+    else:
+        c_mean = np.mean(vectors, axis=0)
+
+    org_vec = cosine_similarity(c_mean, DataHolder.word_vec_info).flatten()
+    # 找到前k个最相似商品的索引.argpartition 默认按最后一个真正的余弦相似度【这里其实有3个维度了】，也就是真实的相似度
+    top_k_batch_indices = np.argpartition(org_vec, -top_n)[-top_n:]
+    # 直接往redis中存储，不保存，注意这里是索引需要转换成ID
+
+    # top_k_batch_indices.tolist()[0]。表示位置，因为用 np.argpartition 进行了排序
+    ids = [DataHolder.meta_list_id[pos] for pos in top_k_batch_indices.tolist()]
+
     # sim_scores = list(enumerate(DataHolder.similarity_matrix_word[index]))
-    sim_scores = json.loads(redis_client.get(f"product:{query_id}:similar"))
+    # sim_scores = json.loads(redis_client.get(f"product:{query_id}:similar"))
     # sim_scores = sorted(sim_scores, key=lambda x: x[0], reverse=True)
     # most_similar_products = tuple([DataHolder.meta_list_id[k] for i, k in sim_scores[1:top_n + 1]])
 
-    db = next(get_db_yph())
     # 翻转列表
-    id_list = list(sim_scores[0:top_n])[::-1]
+    id_list = list(top_k_batch_indices[0:top_n])[::-1]
     print(id_list)
-
     # 改成元组，查询用
     most_similar_products = tuple(id_list)
 
@@ -129,4 +192,5 @@ def find_similar_products(query_id, top_n=5):
     query = text(
         f"SELECT `goods_id`,`supplier_code`,`goods_name`,`goods_desc`,`brand_name`,`goods_spec`,`goods_original_price`,`goods_original_naked_price`,`goods_pact_price`,`goods_pact_naked_price` FROM `shop_goods` AS `a` INNER JOIN `shop_goods_detail` AS `b` ON `a`.`goods_id`=`b`.`id` INNER JOIN `shop_goods_price` AS `c` ON `c`.`goods_code`=`b`.`goods_code` WHERE `a`.`tenant_id`=1 AND a.goods_id IN {most_similar_products} order by field(a.goods_id,{id_str})")
     datas = db.execute(query)
+
     return datas
