@@ -8,20 +8,17 @@
 </head>
 <body>
 <div class="container mt-5">
-    <h1>current product</h1>
+    <h1>当前商品</h1>
     <table class="table table-striped">
         <thead>
         <tr>
-            <th>goods_id</th>
-            <th>supplier</th>
-            <th>goods_name</th>
-            <th>goods_desc</th>
-            <th>goods_spec</th>
-            <th>brand_name</th>
-            <th>p1</th>
-            <th>p2</th>
-            <th>p3</th>
-            <th>p4</th>
+            <th style="width: 80px">ID</th>
+            <th style="width: 100px">供应商</th>
+            <th style="width: 250px">商品名称</th>
+            <th  style="width: 250px">描述</th>
+            <th>规格</th>
+            <th style="width: 140px">品牌名称</th>
+            <th style="width: 100px">协议价</th>
         </tr>
         </thead>
         <tbody>
@@ -33,10 +30,7 @@
             <td>{{ item.goods_desc }}</td>
             <td>{{ item.goods_spec }}</td>
             <td>{{ item.brand_name }}</td>
-            <td>{{ item.goods_original_price }}</td>
-            <td>{{ item.goods_original_naked_price }}</td>
             <td>{{ item.goods_pact_price }}</td>
-            <td>{{ item.goods_pact_naked_price }}</td>
         </tr>
         {% endfor %}
         </tbody>
@@ -44,20 +38,18 @@
 </div>
 
 <div class="container mt-5">
-    <h1>similar products</h1>
+    <h1>相似商品</h1>
     <table class="table table-striped">
         <thead>
         <tr>
-            <th>goods_id</th>
-            <th>supplier</th>
-            <th>goods_name</th>
-            <th>goods_desc</th>
-            <th>goods_spec</th>
-            <th>brand_name</th>
-            <th>p1</th>
-            <th>p2</th>
-            <th>p3</th>
-            <th>p4</th>
+            <th style="width: 80px">ID</th>
+            <th style="width: 100px">供应商</th>
+            <th style="width: 250px">商品名称</th>
+            <th  style="width: 250px">描述</th>
+            <th>规格</th>
+            <th style="width: 140px">品牌名称</th>
+            <th style="width: 100px">协议价</th>
+
         </tr>
         </thead>
         <tbody>
@@ -69,10 +61,10 @@
             <td>{{ item.goods_desc }}</td>
             <td>{{ item.goods_spec }}</td>
             <td>{{ item.brand_name }}</td>
-            <td>{{ item.goods_original_price }}</td>
-            <td>{{ item.goods_original_naked_price }}</td>
+
+
             <td>{{ item.goods_pact_price }}</td>
-            <td>{{ item.goods_pact_naked_price }}</td>
+
         </tr>
         {% endfor %}
         </tbody>
