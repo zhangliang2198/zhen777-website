@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索商品</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+    <h2>搜索商品</h2>
+    <form action="/find_es" method="post">
+        <div class="mb-3">
+            <label for="goods_name" class="form-label">商品名称</label>
+            <input type="text" class="form-control" id="goods_name" name="goods_name">
+        </div>
+        <button type="submit" class="btn btn-primary">搜索</button>
+    </form>
+</div>
+<div class="container mt-5">
+    <h1>搜索结果</h1>
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>供应商</th>
+            <th>商品名称</th>
+            <th>商品描述</th>
+            <th>品牌名称</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for item in datas %}
+        <tr>
+            <td>{{ item.goods_id }}</td>
+            <td>{{ item.supplier_code }}</td>
+            <td>{{ item.goods_name }}</td>
+            <td>{{ item.goods_desc }}</td>
+            <td>{{ item.brand_name }}</td>
+            <td><a href="/find_similar?goodsId={{item.goods_id}}"
+                   class="btn btn-sm btn-primary">查相同商品</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<!-- Add Bootstrap JS -->
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

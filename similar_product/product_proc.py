@@ -40,7 +40,7 @@ def tokenize_and_remove_stopwords(sentence):
     return [t for t in tokens if t not in stopwords and not t.isspace()]
 
 
-def process_product(curr: int = 0, size: int = 600000):
+def process_product(curr: int = 0, size: int = 10000):
     # redis_client.flushdb()
     # 分词和停用词移除
     db = next(get_db_yph())
@@ -78,7 +78,7 @@ def process_product(curr: int = 0, size: int = 600000):
     # 训练Word2Vec模型
     # 每个sentence这里是一个列表["fwewef,"123123"]
     sentences = [x for x in DataHolder.meta_list_values]
-    DataHolder.model = Word2Vec(sentences, vector_size=100, window=2, min_count=1, workers=16)
+    DataHolder.model = Word2Vec(sentences, vector_size=100, window=2, min_count=1, workers=32)
     print("训练Word2Vec模型完成")
     # 计算词向量,并保存
     for item in DataHolder.meta_list_values:
@@ -156,6 +156,8 @@ def find_similar_products(query_id, top_n=5):
         f"SELECT `goods_id`,`supplier_code`,`goods_name`,`goods_desc`,`brand_name`,`goods_spec`,`goods_original_price`,`goods_original_naked_price`,`goods_pact_price`,`goods_pact_naked_price` FROM `shop_goods` AS `a` INNER JOIN `shop_goods_detail` AS `b` ON `a`.`goods_id`=`b`.`id` INNER JOIN `shop_goods_price` AS `c` ON `c`.`goods_code`=`b`.`goods_code` WHERE `a`.`tenant_id`=1 AND `a`.`goods_id`= :goods_id"),
         {"goods_id": query_id})
 
+    if not datas_org:
+        return []
     org_token = [tokenize_and_remove_stopwords(
         str(item.goods_name) + str(item.goods_desc) + str(item.brand_name) + str(item.goods_spec))
         for item in datas_org][0]
@@ -183,7 +185,8 @@ def find_similar_products(query_id, top_n=5):
 
     # 翻转列表
     id_list = list(top_k_batch_indices[0:top_n])[::-1]
-    print(id_list)
+
+
     # 改成元组，查询用
     most_similar_products = tuple(id_list)
 
