@@ -42,7 +42,7 @@ def tokenize_and_remove_stopwords(sentence):
     return [t for t in tokens if t not in stopwords and not t.isspace()]
 
 
-def process_product(curr: int = 0, size: int = 10000):
+def process_product(curr: int = 0, size: int = 600000):
     # redis_client.flushdb()
     # 分词和停用词移除
     db = next(get_db_yph())
@@ -66,7 +66,7 @@ def process_product(curr: int = 0, size: int = 10000):
 
     DataHolder.meta_list_values = [
         tokenize_and_remove_stopwords(
-            str(item.goods_name) + str(item.goods_desc) + str(item.brand_name) + str(item.goods_spec)) for item in
+            str(item.goods_name) + str(item.goods_desc) + str(item.brand_name)) for item in
         data]
     print("分词完成")
     # 得到稀疏矩阵
@@ -161,7 +161,7 @@ def find_similar_products(query_id, top_n=5):
     if len(dd) == 0:
         return []
     org_token = [tokenize_and_remove_stopwords(
-        str(item.goods_name) + str(item.goods_desc) + str(item.brand_name) + str(item.goods_spec))
+        str(item.goods_name) + str(item.goods_desc) + str(item.brand_name))
         for item in dd][0]
 
     query_vector = DataHolder.vectorizer.transform([org_token])
