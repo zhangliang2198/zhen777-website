@@ -28,6 +28,5 @@ async def on_startup():
     # 通过多线程处理
     multiprocessing.Process(target=similar_product.product_proc.process_product())
 
-
 if __name__ == "__main__":
     uvicorn.run(app="main:app", host="127.0.0.1", port=8000)

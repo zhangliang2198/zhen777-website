@@ -37,13 +37,18 @@ async def find_similar(request: Request, goodsId: str, db: Session = Depends(get
     datas_org = db.execute(text(
         f"SELECT `goods_id`,`supplier_code`,`goods_name`,`goods_desc`,`brand_name`,`goods_spec`,`goods_original_price`,`goods_original_naked_price`,`goods_pact_price`,`goods_pact_naked_price` FROM `shop_goods` AS `a` INNER JOIN `shop_goods_detail` AS `b` ON `a`.`goods_id`=`b`.`id` INNER JOIN `shop_goods_price` AS `c` ON `c`.`goods_code`=`b`.`goods_code` WHERE `a`.`tenant_id`=1 AND `a`.`goods_id`= :goods_id"),
         {"goods_id": goodsId})
+    if not datas:
+        errors = "因ES在测试环境，可能没有在数据库总找到对应商品，请换一个商品试试"
+    else:
+        errors = ""
     return templates.TemplateResponse("similar_goods.html",
-                                      {"request": request, "error": "", "datas": datas, "datas_org": datas_org})
+                                      {"request": request, "error": errors, "datas": datas, "datas_org": datas_org})
 
 
 @router_yph.get("/", response_class=HTMLResponse)
 async def find_es_main(request: Request):
     return templates.TemplateResponse("ex_goods.html", {"request": request, "error": ""})
+
 
 @router_yph.get("/find_es", response_class=HTMLResponse)
 async def find_es(request: Request):

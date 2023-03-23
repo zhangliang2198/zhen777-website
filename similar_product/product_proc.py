@@ -157,12 +157,12 @@ def find_similar_products(query_id, top_n=5):
     datas_org = db.execute(text(
         f"SELECT `goods_id`,`supplier_code`,`goods_name`,`goods_desc`,`brand_name`,`goods_spec`,`goods_original_price`,`goods_original_naked_price`,`goods_pact_price`,`goods_pact_naked_price` FROM `shop_goods` AS `a` INNER JOIN `shop_goods_detail` AS `b` ON `a`.`goods_id`=`b`.`id` LEFT JOIN `shop_goods_price` AS `c` ON `c`.`goods_code`=`b`.`goods_code` WHERE `a`.`tenant_id`=1 AND `a`.`goods_id`= :goods_id"),
         {"goods_id": query_id})
-
-    if not datas_org:
+    dd = list(datas_org)
+    if len(dd) == 0:
         return []
     org_token = [tokenize_and_remove_stopwords(
         str(item.goods_name) + str(item.goods_desc) + str(item.brand_name) + str(item.goods_spec))
-        for item in datas_org][0]
+        for item in dd][0]
 
     query_vector = DataHolder.vectorizer.transform([org_token])
     similarities = cosine_similarity(query_vector, DataHolder.td_vec_info)
@@ -182,7 +182,6 @@ def find_similar_products(query_id, top_n=5):
     # 直接往redis中存储，不保存，注意这里是索引需要转换成ID
 
     # top_k_batch_indices.tolist()[0]。表示位置，因为用 np.argpartition 进行了排序
-
 
     # sim_scores = list(enumerate(DataHolder.similarity_matrix_word[index]))
     # sim_scores = json.loads(redis_client.get(f"product:{query_id}:similar"))
