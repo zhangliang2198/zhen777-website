@@ -18,7 +18,7 @@ templates = Jinja2Templates(directory="templates")
 router = APIRouter()
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/home", response_class=HTMLResponse)
 async def home(request: Request, response: Response):
     authenticated, decoded_token = is_authenticated(request)
     if authenticated:

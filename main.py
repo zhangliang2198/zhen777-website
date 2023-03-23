@@ -2,6 +2,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+import similar_product.product_proc
 from db.mysql import get_db
 from modules.sys_task import get_tasks
 from router.scheduler import router_task, scheduler, init_job
@@ -10,6 +11,8 @@ from router.yph_shop_router import router_yph
 from similar_product.product_proc import process_product
 from utils import get_function_from_string
 from apscheduler.triggers.interval import IntervalTrigger
+
+import multiprocessing
 
 # 应用
 app = FastAPI()
@@ -22,7 +25,8 @@ app.include_router(router_task)
 @app.on_event("startup")
 async def on_startup():
     await init_job()
-    process_product()
+    # 通过多线程处理
+    multiprocessing.Process(target=similar_product.product_proc.process_product())
 
 
 if __name__ == "__main__":

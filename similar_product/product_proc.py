@@ -42,12 +42,12 @@ def tokenize_and_remove_stopwords(sentence):
     return [t for t in tokens if t not in stopwords and not t.isspace()]
 
 
-def process_product(curr: int = 0, size: int = 600000):
+def process_product(curr: int = 0, size: int = 10000):
     # redis_client.flushdb()
     # 分词和停用词移除
     db = next(get_db_yph())
     query = text(
-        f"SELECT goods_id,supplier_code,goods_name,goods_desc,brand_name,goods_spec from shop_goods as a INNER JOIN shop_goods_detail as b on a.goods_id = b.id where a.tenant_id = 1 limit :start,:size")
+        f"SELECT goods_id,supplier_code,goods_name,goods_desc,brand_name,goods_spec from shop_goods as a INNER JOIN shop_goods_detail as b on a.goods_id = b.id where a.tenant_id = 1 and a.is_enable=1 limit :start,:size")
     data = db.execute(query, {"start": curr, "size": size}).all()
     print("开始初始化数据")
     DataHolder.meta_list_id = [item.goods_id for item in data]
@@ -145,8 +145,8 @@ def find_top_k_similar_items(vectors, k, start, end, batch_size=5):
         ids = [DataHolder.meta_list_id[pos] for pos in top_k_batch_indices.tolist()]
         redis_client.set(f"product:{DataHolder.meta_list_id[index]}:similar", json.dumps(ids))
 
-        del batch_similarities
         del top_k_batch_indices
+        del batch_similarities
         del ids
 
     # return np.array(top_k_indices_list)

@@ -41,6 +41,10 @@ async def find_similar(request: Request, goodsId: str, db: Session = Depends(get
                                       {"request": request, "error": "", "datas": datas, "datas_org": datas_org})
 
 
+@router_yph.get("/", response_class=HTMLResponse)
+async def find_es_main(request: Request):
+    return templates.TemplateResponse("ex_goods.html", {"request": request, "error": ""})
+
 @router_yph.get("/find_es", response_class=HTMLResponse)
 async def find_es(request: Request):
     return templates.TemplateResponse("ex_goods.html", {"request": request, "error": ""})
